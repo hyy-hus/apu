@@ -1,0 +1,21 @@
+<type>(<scope>): <short description>
+
+# <body>
+# <footer>
+# ------------------------
+# Guidelines:
+# - Title must be under 50 characters.
+# - Separate title from body with a blank line.
+#
+# Allowed Types:
+#   feat     (New feature for the user)
+#   fix      (Bug fix)
+#   chore    (Routine tasks, project init, file moving)
+#   build    (Dependencies, Cargo.toml, build tools)
+#   refactor (Code change that neither fixes a bug nor adds a feature)
+#   docs     (Documentation changes only)
+#
+# Scopes for this project: 
+#   backend, frontend, email, webhook, deps, config
+# ------------------------
+# Remember to add "Closes #<issue>" in the body/footer if applicable!
