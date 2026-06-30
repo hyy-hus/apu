@@ -1,4 +1,4 @@
-use resend_rs::Resend;
+use resend_rs::{Resend, types::CreateEmailBaseOptions};
 
 use crate::shared::email::{EmailError, EmailService, OutboundEmail};
 
@@ -15,10 +15,19 @@ impl ResendEmailService {
 }
 
 impl EmailService for ResendEmailService {
-    async fn send(&self, _message: OutboundEmail) -> Result<(), EmailError> {
-        Err(EmailError::InvalidConfiguration(
-            "Intented to fail".to_string(),
-        ))
+    async fn send(&self, message: OutboundEmail) -> Result<(), EmailError> {
+        let recipients: Vec<&str> = message.to.iter().map(|s| s.as_str()).collect();
+
+        self.client
+            .emails
+            .send(
+                CreateEmailBaseOptions::new(&message.from, recipients, &message.subject)
+                    .with_html(&message.html_body),
+            )
+            .await
+            .map_err(|e| EmailError::ProviderError(e.to_string()))?;
+
+        Ok(())
     }
 }
 
@@ -36,7 +45,7 @@ mod tests {
         let service = ResendEmailService::new(&api_key);
 
         let message = OutboundEmail {
-            from: "Test Sender <test.sender@test.com>".to_string(),
+            from: "Test Sender <onboarding@resend.dev>".to_string(),
             to: vec!["delivered@resend.dev".to_string()],
             subject: "Test message".to_string(),
             html_body: "Test".to_string(),
