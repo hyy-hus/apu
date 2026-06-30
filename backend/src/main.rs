@@ -15,6 +15,8 @@ use std::env;
 
 use serde::Deserialize;
 
+mod shared;
+
 #[tokio::main]
 async fn main() {
     let _env = dotenv().unwrap();
