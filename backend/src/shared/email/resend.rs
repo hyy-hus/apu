@@ -7,7 +7,7 @@ pub struct ResendEmailService {
 }
 
 impl ResendEmailService {
-    fn new(api_key: &str) -> Self {
+    pub fn new(api_key: &str) -> Self {
         Self {
             client: Resend::new(api_key),
         }

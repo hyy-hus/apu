@@ -1,8 +1,11 @@
+#[cfg(test)]
 mod mock;
-mod resend;
 
-// pub use resend::ResendEmailService;
-// pub use mock::MockEmailService;
+#[cfg(test)]
+pub use mock::MockEmailService;
+
+mod resend;
+pub use resend::ResendEmailService;
 
 use thiserror::Error;
 
