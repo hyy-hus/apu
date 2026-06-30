@@ -1,5 +1,5 @@
-// mod resend;
 mod mock;
+mod resend;
 
 // pub use resend::ResendEmailService;
 // pub use mock::MockEmailService;
@@ -12,10 +12,6 @@ pub enum EmailError {
     InvalidConfiguration(String),
     #[error("Email provider could not handle request")]
     ProviderError(String),
-    #[error("Cryptographic handshake failed")]
-    InvalidSignature(String),
-    #[error("Could not parse message")]
-    ParsingError(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -28,5 +24,4 @@ pub struct OutboundEmail {
 
 pub trait EmailService: Send + Sync {
     async fn send(&self, message: OutboundEmail) -> Result<(), EmailError>;
-    async fn receive(&self) -> Result<(), EmailError>;
 }

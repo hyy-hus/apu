@@ -29,10 +29,6 @@ impl EmailService for MockEmailService {
 
         Ok(())
     }
-
-    async fn receive(&self) -> Result<(), EmailError> {
-        Err(EmailError::ProviderError("Not implemented".to_string()))
-    }
 }
 
 #[cfg(test)]
