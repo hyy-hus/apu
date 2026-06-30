@@ -27,6 +27,7 @@ dependencies = [
  "resend-rs",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower-http 0.7.0",
  "tracing",
