@@ -1,8 +1,10 @@
+use axum::Json;
 use axum::extract::Query;
+use axum::routing::post;
 use axum::{Router, http::StatusCode, routing::get};
 use dotenvy::dotenv;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use tracing::{Level, error, info};
+use tracing::{Level, error, info, warn};
 
 use tracing_subscriber::{EnvFilter, prelude::*};
 
@@ -32,6 +34,7 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(handle_health))
         .route("/send_mail", get(send_mail))
+        .route("/inbound", post(handle_inbound_webhook))
         .layer(middleware_logging);
 
     let addr = "127.0.0.1:8080";
@@ -81,4 +84,42 @@ async fn send_mail(
         })?;
 
     Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize, Debug)]
+struct ResendWebhookEvent {
+    r#type: String,
+    created_at: String,
+    data: InboundEmailMetadata,
+}
+
+#[derive(Deserialize, Debug)]
+struct InboundEmailMetadata {
+    email_id: String,
+    from: String,
+    to: Vec<String>,
+    subject: Option<String>,
+}
+
+async fn handle_inbound_webhook(Json(payload): Json<ResendWebhookEvent>) -> StatusCode {
+    info!("Webhook endpoint executed!");
+
+    if payload.r#type != "email.received" {
+        warn!("Ignored unsupported webhook event type: {}", payload.r#type);
+        return StatusCode::OK;
+    }
+
+    let email = payload.data;
+    info!("----------------------------------------");
+    info!("New Mail Received via Resend!");
+    info!("From: {}", email.from);
+    info!("To Array: {:?}", email.to);
+    info!(
+        "Subject: {}",
+        email.subject.unwrap_or_else(|| "No Subject".to_string())
+    );
+    info!("Resend Inbound Email ID Reference: {}", email.email_id);
+    info!("----------------------------------------");
+
+    StatusCode::OK
 }
