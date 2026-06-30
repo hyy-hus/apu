@@ -1,11 +1,26 @@
+use axum::Json;
+use axum::extract::Query;
+use axum::routing::post;
 use axum::{Router, http::StatusCode, routing::get};
+use dotenvy::dotenv;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-use tracing::{Level, info};
+use tracing::{Level, error, info, warn};
 
 use tracing_subscriber::{EnvFilter, prelude::*};
 
+use resend_rs::Resend;
+use resend_rs::types::CreateEmailBaseOptions;
+
+use std::env;
+
+use serde::Deserialize;
+
+mod shared;
+
 #[tokio::main]
 async fn main() {
+    let _env = dotenv().unwrap();
+
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("apu_backend=info,tower_http=debug"));
 
@@ -20,6 +35,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(handle_health))
+        .route("/send_mail", get(send_mail))
+        .route("/inbound", post(handle_inbound_webhook))
         .layer(middleware_logging);
 
     let addr = "127.0.0.1:8080";
@@ -32,5 +49,79 @@ async fn main() {
 }
 
 async fn handle_health() -> StatusCode {
+    StatusCode::OK
+}
+
+#[derive(Deserialize)]
+struct MailQueryParams {
+    to: String,
+}
+
+async fn send_mail(
+    Query(params): Query<MailQueryParams>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let resend = Resend::default();
+
+    let from = env::var("SENDER_EMAIL").unwrap();
+    let to = [params.to.as_str()];
+
+    let subject = "Apu Backend Verification Link";
+    let html_body = format!(
+        "<h2>Greetings!</h2><p>This test email was triggered dynamically for <strong>{}</strong>.</p>",
+        params.to
+    );
+
+    info!("Dispatched dynamic URL test mail to: {:?}", to);
+
+    resend
+        .emails
+        .send(CreateEmailBaseOptions::new(&from, to, subject).with_html(&html_body))
+        .await
+        .map_err(|e| {
+            error!("Failed to send email via Resend: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Email error: {:?}", e),
+            )
+        })?;
+
+    Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize, Debug)]
+struct ResendWebhookEvent {
+    r#type: String,
+    created_at: String,
+    data: InboundEmailMetadata,
+}
+
+#[derive(Deserialize, Debug)]
+struct InboundEmailMetadata {
+    email_id: String,
+    from: String,
+    to: Vec<String>,
+    subject: Option<String>,
+}
+
+async fn handle_inbound_webhook(Json(payload): Json<ResendWebhookEvent>) -> StatusCode {
+    info!("Webhook endpoint executed!");
+
+    if payload.r#type != "email.received" {
+        warn!("Ignored unsupported webhook event type: {}", payload.r#type);
+        return StatusCode::OK;
+    }
+
+    let email = payload.data;
+    info!("----------------------------------------");
+    info!("New Mail Received via Resend!");
+    info!("From: {}", email.from);
+    info!("To Array: {:?}", email.to);
+    info!(
+        "Subject: {}",
+        email.subject.unwrap_or_else(|| "No Subject".to_string())
+    );
+    info!("Resend Inbound Email ID Reference: {}", email.email_id);
+    info!("----------------------------------------");
+
     StatusCode::OK
 }
