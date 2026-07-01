@@ -1,5 +1,5 @@
 use axum::Json;
-use axum::extract::Query;
+use axum::extract::{Query, State};
 use axum::routing::post;
 use axum::{Router, http::StatusCode, routing::get};
 use dotenvy::dotenv;
@@ -20,6 +20,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::config::AppConfig;
+use crate::domains::auth::middleware::CurrentUser;
 
 use axum::extract::FromRef;
 
@@ -85,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health", get(handle_health))
         .route("/send_mail", get(send_mail))
         .route("/inbound", post(handle_inbound_webhook))
+        .route("/test_auth", get(test_auth))
         .nest("/auth", domains::auth::routes::router())
         .with_state(state)
         .layer(middleware_logging);
@@ -95,13 +97,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Apu server running on http://{}", addr);
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }
 
 async fn handle_health() -> StatusCode {
     StatusCode::OK
+}
+
+async fn test_auth(user: CurrentUser) -> Result<StatusCode, StatusCode> {
+    info!("User '{}' authenticated", user.username);
+
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]

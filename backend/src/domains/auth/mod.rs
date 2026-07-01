@@ -3,6 +3,7 @@ use argon2::{
     password_hash::{SaltString, rand_core::OsRng},
 };
 
+pub mod middleware;
 pub mod routes;
 pub mod schema;
 
