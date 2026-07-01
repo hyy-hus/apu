@@ -11,15 +11,37 @@ use tracing_subscriber::{EnvFilter, prelude::*};
 use resend_rs::Resend;
 use resend_rs::types::CreateEmailBaseOptions;
 
+use sqlx::postgres::PgPoolOptions;
+
 use std::env;
 
 use serde::Deserialize;
 
+use crate::config::AppConfig;
+
+mod config;
 mod shared;
 
 #[tokio::main]
-async fn main() {
-    let _env = dotenv().unwrap();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = AppConfig::load().map_err(|e| {
+        error!("Configuration error: {}", e);
+        e
+    })?;
+
+    let db_pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&config.database.url)
+        .await?;
+
+    info!(
+        "Succesfully connected to database '{}'",
+        config.database.db_name
+    );
+
+    sqlx::migrate!("./migrations").run(&db_pool).await?;
+
+    info!("Succesfully ran migrations");
 
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("apu_backend=info,tower_http=debug"));
@@ -46,6 +68,8 @@ async fn main() {
     info!("Apu server running on http://{}", addr);
 
     axum::serve(listener, app).await.unwrap();
+
+    Ok(())
 }
 
 async fn handle_health() -> StatusCode {
