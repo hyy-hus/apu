@@ -3,6 +3,7 @@ use axum::extract::Query;
 use axum::routing::post;
 use axum::{Router, http::StatusCode, routing::get};
 use dotenvy::dotenv;
+use sqlx::PgPool;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::{Level, error, info, warn};
 
@@ -14,13 +15,31 @@ use resend_rs::types::CreateEmailBaseOptions;
 use sqlx::postgres::PgPoolOptions;
 
 use std::env;
+use std::sync::Arc;
 
 use serde::Deserialize;
 
 use crate::config::AppConfig;
 
+use axum::extract::FromRef;
+
+use crate::shared::email::{EmailService, ResendEmailService};
+
 mod config;
+pub mod domains;
 mod shared;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db_pool: PgPool,
+    pub email_service: Arc<dyn EmailService + Send + Sync>,
+}
+
+impl axum::extract::FromRef<AppState> for sqlx::PgPool {
+    fn from_ref(state: &AppState) -> Self {
+        state.db_pool.clone()
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,10 +74,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .make_span_with(DefaultMakeSpan::new().level(Level::DEBUG))
         .on_response(DefaultOnResponse::new().level(Level::DEBUG));
 
+    let email_service = Arc::new(ResendEmailService::new(&config.resend_api_key));
+
+    let state = AppState {
+        db_pool,
+        email_service,
+    };
+
     let app = Router::new()
         .route("/health", get(handle_health))
         .route("/send_mail", get(send_mail))
         .route("/inbound", post(handle_inbound_webhook))
+        .nest("/auth", domains::auth::routes::router())
+        .with_state(state)
         .layer(middleware_logging);
 
     let addr = "127.0.0.1:8080";
