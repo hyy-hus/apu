@@ -25,6 +25,7 @@ pub struct OutboundEmail {
     pub html_body: String,
 }
 
+#[async_trait::async_trait]
 pub trait EmailService: Send + Sync {
     async fn send(&self, message: OutboundEmail) -> Result<(), EmailError>;
 }

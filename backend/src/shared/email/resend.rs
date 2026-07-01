@@ -14,6 +14,7 @@ impl ResendEmailService {
     }
 }
 
+#[async_trait::async_trait]
 impl EmailService for ResendEmailService {
     async fn send(&self, message: OutboundEmail) -> Result<(), EmailError> {
         let recipients: Vec<&str> = message.to.iter().map(|s| s.as_str()).collect();

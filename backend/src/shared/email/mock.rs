@@ -20,6 +20,7 @@ impl MockEmailService {
 }
 
 #[cfg(test)]
+#[async_trait::async_trait]
 impl EmailService for MockEmailService {
     async fn send(&self, message: OutboundEmail) -> Result<(), EmailError> {
         info!("Sending message: {:?}", message);
